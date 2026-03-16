@@ -47,13 +47,13 @@ This information enables the customer service team to provide efficient support.
 
 # ERD Diagram
 
-![ERD Diagram](Phase1/images/ERD.png)
+![ERD Diagram](phase1/images/ERD.png)
 
 ---
 
 # DSD Diagram
 
-![DSD Diagram](Phase1/images/DSD.png)
+![DSD Diagram](phase1/images/DSD.png)
 
 ---
 
