@@ -1,10 +1,10 @@
 # DBProject – Phase 1
 
 ## Team Members
-Meitav Bin Nun
-Efrat Hourvitz
+Meitav Bin Nun  
+Efrat Hourvitz  
+
 ---
-# DBProject – Phase 1
 
 ## Introduction
 
@@ -13,6 +13,8 @@ Each team was required to focus on a specific department within the store.
 
 Our team chose to focus on the **Customer Service department**.  
 Therefore, the system we designed manages the information required for customer support operations, including customers, service requests, employees, products, and transactions related to customer inquiries.
+
+---
 
 # System Description
 
@@ -35,13 +37,12 @@ Customer service **employees** handle these requests and may also assist custome
 
 The system allows tracking:
 
-- customer purchases
-- customer service requests
-- employee handling of requests
-- relationships between customers, products, and transactions
+- customer purchases  
+- customer service requests  
+- employee handling of requests  
+- relationships between customers, products, and transactions  
 
 This information enables the customer service team to provide efficient support.
-
 
 ---
 
@@ -57,15 +58,75 @@ This information enables the customer service team to provide efficient support.
 
 ---
 
-# Design Decisions
+# Data Population Documentation
 
-### Weak Entities Design
+### Data Generation – Customers
+![Customers Data](phase1/images/customers_mockaroo.png)
 
-In the current ERD design, entities that conceptually behave like weak entities are modeled as **regular entities**.
+### Data Generation – Employees
+![Employees Data](phase1/images/employees_mockaroo.png)
 
-This design decision was made intentionally in order to simplify the ERD structure.
+### Data Generation – Products
+![Products Data](phase1/images/products_mockaroo.png)
 
-In future phases of the project, database constraints will be applied to enforce the intended structure.  
-Specifically, **foreign keys will be constrained with UNIQUE constraints**, allowing them to participate as part of the primary key when needed.
+---
 
-This approach keeps the conceptual model clean while allowing flexibility in the database implementation.
+# Data Insertion Process
+
+The data was inserted into the database in multiple stages:
+
+1. Creation of tables using SQL scripts  
+2. Generation of mock data using Mockaroo  
+3. Importing CSV files into PostgreSQL  
+4. Ensuring referential integrity using foreign keys  
+5. Running validation queries to verify correctness  
+
+---
+
+# System Screens
+
+### Login Screen
+![Login](phase1/images/login.png)
+
+---
+
+### Dashboard
+![Dashboard](phase1/images/dashboard.png)
+
+---
+
+### Customers Screen
+![Customers](phase1/images/customers.png)
+
+---
+
+### Products Screen
+![Products](phase1/images/products.png)
+
+---
+
+### Employees Screen
+![Employees](phase1/images/employees.png)
+
+---
+
+### Requests Screen
+![Requests](phase1/images/requests.png)
+
+---
+
+### Transactions Screen
+![Transactions](phase1/images/transactions.png)
+
+---
+
+# Backup
+
+A full backup of the database was created.
+
+The backup includes:
+
+- Database structure (tables, relationships, constraints)  
+- All inserted data  
+
+Backup file:
