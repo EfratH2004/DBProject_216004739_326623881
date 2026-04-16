@@ -58,6 +58,12 @@ This information enables the customer service team to provide efficient support.
 
 ---
 
+# DSD Diagram of pgAdmin
+
+![DSD Diagram](phase1/images/ERD_pgAdmin.png)
+
+---
+
 # Data Population Documentation
 
 ### Data Generation – Customers
