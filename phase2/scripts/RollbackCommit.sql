@@ -1,0 +1,8 @@
+BEGIN;
+...
+ROLLBACK;
+
+
+BEGIN;
+...
+COMMIT;
