@@ -308,15 +308,8 @@ This query displays employees with more than 10 years of experience.
 
 ---
 
-## Query 10 – Total Revenue Per Customer
 
-This query displays the total revenue generated from each customer.
-
-![totalPerCostumer](phase2/images/totalPerCostumer.jpeg)
-
----
-
-## Query 11 – Closed Requests This Year
+## Query 10 – Closed Requests This Year
 
 This query displays all requests that were closed during the current year.
 
@@ -324,7 +317,7 @@ This query displays all requests that were closed during the current year.
 
 ---
 
-## Query 12 – Most Sold Products
+## Query 11 – Most Sold Products
 
 This query displays the products with the highest number of sales.
 
