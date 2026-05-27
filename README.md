@@ -600,3 +600,271 @@ The backup includes:
 Backup file:
 
 [Download backup](./phase2/backup2.backup)
+
+
+
+# Phase 3 – Integration and Views
+
+## Introduction
+
+In this phase, we performed database integration between our original Customer Service system and an additional department database received from another team.
+
+The goal of this phase was to create one integrated database while preserving the existing tables and data.  
+The integration was performed according to option A, which requires changing the existing database schema using SQL commands, without recreating the entire database from scratch.
+
+---
+
+## New Department DSD
+
+The DSD of the received department was created based on the restored backup database.
+
+![DSD Other Department](phase3/images/DSD_OTHER.png)
+
+---
+
+## New Department ERD
+
+After analyzing the DSD, we performed reverse engineering and created an ERD for the received department.
+
+![ERD Other Department](phase3/images/ERD_OTHER.png)
+
+---
+
+## Integrated ERD
+
+After comparing both systems, we designed a shared ERD that combines the original Customer Service department with the received department.
+
+![Integrated ERD](phase3/images/ERD_INTEGRATION.png)
+
+---
+
+## Integrated DSD
+
+The integrated DSD represents the final database structure after applying the integration changes.
+
+![Integrated DSD](phase3/images/DSD_INTEGRATION.png)
+
+---
+
+## Reverse Engineering Algorithm
+
+The reverse engineering process from DSD to ERD was performed as follows:
+
+1. Each table in the received schema was examined.
+2. Tables with an independent primary key and descriptive attributes were identified as entities.
+3. Tables mainly composed of foreign keys were identified as relationship tables.
+4. Primary keys were mapped as entity identifiers.
+5. Foreign keys were used to identify relationships between entities.
+6. The relationship cardinality was determined according to the location of the foreign key.
+7. Lookup tables such as statuses, payment methods and seasons were identified as supporting entities.
+8. Based on these rules, an ERD was created for the received department.
+
+---
+
+## Integration Decisions
+
+During the integration process, several design decisions were made:
+
+- The `customers` entities from both systems were merged into one customer structure.
+- Customers from the received department were inserted into the existing `customers` table.
+- Since our original system separates customers into `private` and `business`, customers from the received department were mapped into the `private` table.
+- The `employees` entities were merged into the existing `employee` table.
+- The `products` entities were merged into the existing `products` table.
+- The received department’s `inquiries` were integrated into the existing `requests` table.
+- Additional fields such as `subject`, `resolved_at`, and `interaction_log_json` were added to support the received department data.
+- New supporting tables such as `seasons`, `paymentmethod`, and `transactionstatus` were added.
+- ID offsets were used when inserting data from the received department in order to avoid primary key conflicts.
+- Foreign key relationships were preserved after the integration.
+
+---
+
+## Integration Process
+
+The integration was implemented in the file:
+
+```text
+Integrate.sql
+```
+
+The integration script:
+- Added missing columns using ALTER TABLE
+- Created new supporting tables
+- Inserted data from the received department
+- Preserved foreign key relationships
+- Prevented primary key conflicts using ID offsets
+
+---
+
+# Views
+
+Two views were created in the file:
+
+```text
+Views.sql
+```
+
+Each view represents one of the original departments and combines multiple tables using JOIN operations and filtering conditions.
+
+---
+
+## View 1 – Customer Service Active Requests View
+
+This view represents our original Customer Service department.
+
+The view combines:
+- customers
+- private/business
+- requests
+- employee
+- rstatus
+- priority
+
+The view displays customer service requests together with:
+- customer information
+- employee information
+- request status
+- request priority
+
+The view only displays valid and active requests.
+
+---
+
+## View Query
+
+```sql
+SELECT *
+FROM customer_service_active_requests_view
+LIMIT 10;
+```
+
+### Output
+
+![Customer Service View](phase3/images/customer_service_view.png)
+
+---
+
+## Query 1 – Requests By Employee And Status
+
+This query counts how many requests each employee handled for every request status.
+
+```sql
+SELECT
+    employee_name,
+    request_status,
+    COUNT(*) AS total_requests
+FROM customer_service_active_requests_view
+GROUP BY employee_name, request_status
+ORDER BY total_requests DESC;
+```
+
+### Output
+
+![Customer Service Query 1](phase3/images/customer_service_query1.png)
+
+---
+
+## Query 2 – Customers With The Highest Number Of Requests
+
+This query displays customers who opened the largest number of service requests.
+
+```sql
+SELECT
+    customer_name,
+    cphone,
+    COUNT(*) AS total_requests
+FROM customer_service_active_requests_view
+GROUP BY customer_name, cphone
+ORDER BY total_requests DESC
+LIMIT 10;
+```
+
+### Output
+
+![Customer Service Query 2](phase3/images/customer_service_query2.png)
+
+---
+
+## View 2 – Received Department Sales View
+
+This view represents the department received from the other team.
+
+The view combines:
+- transactions
+- customers
+- products
+- contains
+- paymentmethod
+- transactionstatus
+
+The view displays:
+- customer information
+- product information
+- transaction details
+- payment information
+
+The view only displays valid transactions and products.
+
+---
+
+## View Query
+
+```sql
+SELECT *
+FROM received_department_sales_view
+LIMIT 10;
+```
+
+### Output
+
+![Received Department View](phase3/images/received_department_view.png)
+
+---
+
+## Query 1 – Most Sold Products
+
+This query displays the products that appeared in the largest number of transactions.
+
+```sql
+SELECT
+    product_name,
+    COUNT(*) AS total_sales
+FROM received_department_sales_view
+GROUP BY product_name
+ORDER BY total_sales DESC
+LIMIT 10;
+```
+
+### Output
+
+![Received Department Query 1](phase3/images/received_department_query1.png)
+
+---
+
+## Query 2 – Customers With The Highest Number Of Transactions
+
+This query displays customers who performed the highest number of transactions.
+
+```sql
+SELECT
+    customer_name,
+    COUNT(*) AS total_transactions
+FROM received_department_sales_view
+GROUP BY customer_name
+ORDER BY total_transactions DESC
+LIMIT 10;
+```
+
+### Output
+
+![Received Department Query 2](phase3/images/received_department_query2.png)
+
+---
+
+# Backup
+
+A full updated backup of the integrated database was created after completing Phase 3.
+
+Backup file:
+
+[Download backup](./phase3/backup3.backup)
+
