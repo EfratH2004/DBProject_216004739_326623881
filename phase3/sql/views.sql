@@ -35,10 +35,10 @@ JOIN rstatus rs
     ON r.rs_id = rs.rs_id
 JOIN priority pr
     ON r.priority_id = pr.priority_id
-WHERE r.open_date <= CURRENT_DATE
-  AND (
+WHERE r.open_date <= CURRENT_DATE // רק פניות שנפתחו עד היום
+  AND ( // בודק שהפניה תקינה
         r.resolved_at IS NULL
-        OR r.resolved_at >= r.open_date
+        OR r.resolved_at >= r.open_date // פניות שעדיין פתוחות או נפתרו לאחר שנפתחו
       )
   AND pr.priority_name IS NOT NULL;
 
@@ -49,7 +49,7 @@ FROM customer_service_active_requests_view
 LIMIT 10;
 
 
--- Query 2: כמות פניות לפי עובד וסטטוס
+-- Query 2: סופרת כמה פניות יש לכל עובד לפי סטטוס
 SELECT
     employee_name,
     request_status,
@@ -59,7 +59,7 @@ GROUP BY employee_name, request_status
 ORDER BY total_requests DESC;
 
 
--- Query 3: לקוחות עם הכי הרבה פניות שירות
+-- Query 3: עשרת הלקוחות עם הכי הרבה פניות שירות
 SELECT
     customer_name,
     cphone,
@@ -68,8 +68,6 @@ FROM customer_service_active_requests_view
 GROUP BY customer_name, cphone
 ORDER BY total_requests DESC
 LIMIT 10;
-
-
 
 
 
@@ -117,8 +115,8 @@ LEFT JOIN paymentmethod pm
 LEFT JOIN transactionstatus ts
     ON t.t_status_id = ts.t_status_id
 WHERE t.transaction_date <= CURRENT_DATE
-  AND pr.price > 0
-  AND (
+  AND pr.price > 0 // בודק שהמוצר תקין עם מחיר חיובי
+  AND ( // בודק שהעסקה תקינה
         t.amount IS NULL
         OR t.amount >= 0
       );
@@ -130,7 +128,7 @@ FROM received_department_sales_view
 LIMIT 10;
 
 
--- Query 2: מוצרים שנמכרו הכי הרבה פעמים
+-- Query 2: עשרת המוצרים שנמכרו הכי הרבה פעמים
 SELECT
     product_name,
     COUNT(*) AS total_sales
@@ -139,7 +137,7 @@ GROUP BY product_name
 ORDER BY total_sales DESC
 LIMIT 10;
 
--- Query 3: לקוחות שביצעו הכי הרבה עסקאות
+-- Query 3: עשרת הלקוחות שביצעו הכי הרבה עסקאות
 SELECT
     customer_name,
     COUNT(*) AS total_transactions

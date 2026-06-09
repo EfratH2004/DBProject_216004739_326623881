@@ -23,6 +23,9 @@ OPTIONS (
     password 'meitavandefrat'
 );
 
+
+-- ייבוא טבלאות הזוג השני כטבלאות זרות זמניות תחת other_src
+
 IMPORT FOREIGN SCHEMA public
 FROM SERVER other_department_server
 INTO other_src;
@@ -79,7 +82,7 @@ ALTER TABLE customers
 ADD COLUMN IF NOT EXISTS has_club_card BOOLEAN;
 
 
--- 4. הוספת נתוני lookup
+-- 4. הוספת נתוני lookup - נתונים של טבלאות עזר קטנות שמכילות רשימה של ערכים קבועים
 
 INSERT INTO seasons (s_id, s_name)
 SELECT s_id::INT, s_name
@@ -143,8 +146,8 @@ INSERT INTO private (
 )
 SELECT
     c_id::INT + 1000000,
-    split_part(c_name, ' ', 1),
-    NULLIF(substring(c_name from position(' ' in c_name) + 1), ''),
+    split_part(c_name, ' ', 1), // מפריד לפי רווח ומחזיר את החלק הראשון כשם פרטי
+    NULLIF(substring(c_name from position(' ' in c_name) + 1), ''), // מפריד לפי רווח ומחזיר את החלק השני כשם משפחה, אם קיים
     NULL,
     NULL
 FROM other_src.customers
@@ -214,7 +217,7 @@ INSERT INTO transactions (
 SELECT
     t_id::INT + 1000000,
     transaction_datetime,
-    c_id::INT + 1000000,
+    c_id::INT + 1000000, // התאמה ללקוח שהוכנס קודם
     NULL,
     NULL,
     amount,

@@ -868,3 +868,677 @@ Backup file:
 
 [Download backup](./phase3/backup3.backup)
 
+# Phase 4 – PL/pgSQL Programming
+
+## Introduction
+
+In this phase, we extended the integrated database created in Phase 3 by implementing advanced business logic using PL/pgSQL.
+
+The goal of this phase was to create non-trivial database programs that operate directly on the integrated database and automate business processes.
+
+The implementation includes:
+
+* 2 Functions
+* 2 Procedures
+* 2 Triggers
+* 2 Main Programs
+
+The programs focus on two main business processes:
+
+1. Employee workload management and automatic request reassignment.
+2. Low stock product management and automatic price updates.
+
+The implementation demonstrates the use of:
+
+* Cursors
+* Ref Cursors
+* DML statements
+* Conditional statements
+* Loops
+* Records
+* Exception handling
+* Triggers
+
+---
+
+# Database Changes
+
+Before implementing the PL/pgSQL programs, several schema modifications were required.
+
+These changes were implemented in the file:
+
+```text
+AlterTable.sql
+```
+
+```sql
+ALTER TABLE requests
+ADD COLUMN IF NOT EXISTS last_updated DATE DEFAULT CURRENT_DATE;
+
+ALTER TABLE requests
+ALTER COLUMN rnote_json TYPE TEXT;
+
+ALTER TABLE employee
+ADD COLUMN IF NOT EXISTS current_open_requests INT DEFAULT 0;
+
+ALTER TABLE employee
+ADD COLUMN IF NOT EXISTS current_load_score NUMERIC DEFAULT 0;
+
+ALTER TABLE employee
+ADD COLUMN IF NOT EXISTS current_load_level TEXT DEFAULT 'LOW';
+
+ALTER TABLE employee
+ADD COLUMN IF NOT EXISTS workload_updated_at DATE;
+```
+
+The column `last_updated` was added to the `requests` table in order to store the date of the most recent update performed on a request.
+
+The column `rnote_json` was converted to `TEXT` in order to allow storing longer automatically generated notes.
+
+The columns added to the `employee` table are derived fields that store the current workload information of each employee.
+
+---
+
+## Function 1 – Calculate Employee Load Score
+
+The implementation was created in the file:
+
+```text
+calculate_employee_load_score.sql
+```
+
+### Description
+
+This function calculates the workload score of a specific employee.
+
+The calculation is based on:
+
+* Number of open requests.
+* Number of high-priority requests.
+* Average age of open requests.
+
+The function returns:
+
+* Employee ID
+* Employee Name
+* Number of Open Requests
+* Number of High Priority Requests
+* Average Days Open
+* Load Score
+* Load Level
+
+The workload level is classified as:
+
+* LOW
+* MEDIUM
+* HIGH
+
+### Code
+
+```sql
+CREATE OR REPLACE FUNCTION calculate_employee_load_score(p_eid INT)
+RETURNS TABLE (
+    employee_id INT,
+    employee_name VARCHAR,
+    open_requests INT,
+    high_priority_requests INT,
+    avg_days_open NUMERIC,
+    load_score NUMERIC,
+    load_level TEXT
+)
+AS $$
+BEGIN
+
+    SELECT eid, ename
+    INTO employee_id, employee_name
+    FROM employee
+    WHERE eid = p_eid;
+
+    IF employee_name IS NULL THEN
+        RAISE EXCEPTION 'Employee with id % does not exist', p_eid;
+    END IF;
+
+    SELECT COUNT(*)
+    INTO open_requests
+    FROM requests
+    WHERE eid = p_eid
+      AND rs_id IN (1, 1000001);
+
+    SELECT COUNT(*)
+    INTO high_priority_requests
+    FROM requests r
+    JOIN priority p ON r.priority_id = p.priority_id
+    WHERE r.eid = p_eid
+      AND rs_id IN (1, 1000001)
+      AND (
+            LOWER(p.priority_name) LIKE '%high%'
+            OR LOWER(p.priority_name) LIKE '%urgent%'
+            OR p.priority_name LIKE '%Critical%'
+            OR p.priority_name LIKE '%Severe%'
+            OR p.priority_name LIKE '%Extreme%'
+          );
+
+    SELECT COALESCE(AVG(CURRENT_DATE - open_date), 0)
+    INTO avg_days_open
+    FROM requests
+    WHERE eid = p_eid
+      AND rs_id IN (1,1000001);
+
+    load_score := open_requests * 10 + high_priority_requests * 20 + avg_days_open * 0.5;
+
+    IF load_score <= 50 THEN
+        load_level := 'LOW';
+    ELSIF load_score <= 120 THEN
+        load_level := 'MEDIUM';
+    ELSE
+        load_level := 'HIGH';
+    END IF;
+
+    RETURN NEXT;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+### Output
+
+![Employee Load Function Output](phase4/images/proof_main1.png)
+
+---
+
+## Procedure 1 – Reassign Requests From Employee
+
+The implementation was created in the file:
+
+```text
+reassign_requests_from_employee.sql
+```
+
+### Description
+
+This procedure automatically balances workloads between employees.
+
+The procedure receives:
+
+* Source employee ID
+* Target employee ID
+* Maximum number of requests to transfer
+
+The procedure:
+
+1. Finds open requests assigned to the overloaded employee.
+2. Sorts requests according to priority and age.
+3. Reassigns requests to a less loaded employee.
+4. Updates the request notes.
+5. Updates the request update date.
+
+### Code
+
+```sql
+CREATE OR REPLACE PROCEDURE reassign_requests_from_employee(
+    p_source_eid INT,
+    p_target_eid INT,
+    p_max_requests INT DEFAULT 5
+)
+AS $$
+DECLARE
+    req_rec RECORD;
+    v_counter INT := 0;
+BEGIN
+    IF p_source_eid = p_target_eid THEN
+        RAISE EXCEPTION 'Source employee and target employee cannot be the same';
+    END IF;
+
+    IF p_max_requests <= 0 THEN
+        RAISE EXCEPTION 'Max requests must be positive';
+    END IF;
+
+    FOR req_rec IN
+        SELECT rid
+        FROM requests
+        WHERE eid = p_source_eid
+          AND rs_id IN (1, 1000001)
+        ORDER BY priority_id DESC, open_date ASC
+        LIMIT p_max_requests
+    LOOP
+        UPDATE requests
+        SET eid = p_target_eid,
+            rnote_json = 'REASSIGNED on ' || CURRENT_DATE ||
+                         ' from employee ' || p_source_eid ||
+                         ' to employee ' || p_target_eid,
+            last_updated = CURRENT_DATE
+        WHERE rid = req_rec.rid;
+
+        v_counter := v_counter + 1;
+
+        RAISE NOTICE 'Request % reassigned from employee % to employee %',
+            req_rec.rid, p_source_eid, p_target_eid;
+    END LOOP;
+
+    RAISE NOTICE 'Total reassigned requests: %', v_counter;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'Error in reassign_requests_from_employee: %', SQLERRM;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+### Output
+
+![Request Reassignment Procedure Output](phase4/images/proof_main1.png)
+
+---
+
+## Trigger 1 – Validate Request Reassignment
+
+The implementation was created in the file:
+
+```text
+validate_request_reassignment.sql
+```
+
+### Description
+
+This trigger is executed before updating the employee assigned to a request.
+
+The trigger verifies that the target employee is not already overloaded.
+
+If the target employee already has 20 or more open requests, the reassignment is rejected and an exception is raised.
+
+This business rule prevents assigning requests to employees that are already overloaded.
+
+### Code
+
+```sql
+CREATE OR REPLACE FUNCTION validate_request_reassignment()
+RETURNS TRIGGER
+AS $$
+DECLARE
+    v_open_requests INT;
+BEGIN
+    IF OLD.eid IS DISTINCT FROM NEW.eid THEN
+
+        SELECT COUNT(*)
+        INTO v_open_requests
+        FROM requests
+        WHERE eid = NEW.eid
+          AND rs_id IN (1, 1000001);
+
+        IF v_open_requests >= 20 THEN
+            RAISE EXCEPTION
+                'Cannot assign request to employee %. Employee already has % open requests',
+                NEW.eid,
+                v_open_requests;
+        END IF;
+
+        NEW.last_updated := CURRENT_DATE;
+
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_validate_request_reassignment ON requests;
+
+CREATE TRIGGER trg_validate_request_reassignment
+BEFORE UPDATE OF eid ON requests
+FOR EACH ROW
+EXECUTE FUNCTION validate_request_reassignment();
+```
+
+### Output
+
+![Request Reassignment Trigger Output](phase4/images/proof_main1.png)
+
+---
+
+## Main Program 1 – Employee Workload Management
+
+The implementation was created in the file:
+
+```text
+main_employee_process.sql
+```
+
+### Description
+
+This main program controls the entire workload balancing process.
+
+The program:
+
+1. Iterates through all employees.
+2. Calculates workload scores using Function 1.
+3. Finds the employee with the highest workload.
+4. Finds the employee with the lowest workload.
+5. Calls Procedure 1 in order to transfer requests.
+
+### Code
+
+```sql
+DO $$
+DECLARE
+    emp_rec RECORD;
+    load_rec RECORD;
+
+    v_source_eid INT := NULL;
+    v_source_score NUMERIC := -1;
+
+    v_target_eid INT := NULL;
+    v_target_score NUMERIC := 9999999;
+BEGIN
+    RAISE NOTICE 'Main employee process started';
+
+    FOR emp_rec IN
+        SELECT eid, ename
+        FROM employee
+        ORDER BY eid
+    LOOP
+        SELECT *
+        INTO load_rec
+        FROM calculate_employee_load_score(emp_rec.eid);
+
+        RAISE NOTICE 'Employee %, score %, level %',
+            load_rec.employee_name,
+            load_rec.load_score,
+            load_rec.load_level;
+
+        IF load_rec.load_level = 'HIGH'
+           AND load_rec.load_score > v_source_score THEN
+            v_source_eid := load_rec.employee_id;
+            v_source_score := load_rec.load_score;
+        END IF;
+
+        IF load_rec.load_score < v_target_score THEN
+            v_target_eid := load_rec.employee_id;
+            v_target_score := load_rec.load_score;
+        END IF;
+    END LOOP;
+
+    IF v_source_eid IS NULL THEN
+        RAISE NOTICE 'No overloaded employee found. Procedure was not executed.';
+
+    ELSIF v_target_eid IS NULL OR v_source_eid = v_target_eid THEN
+        RAISE NOTICE 'No valid target employee found. Procedure was not executed.';
+
+    ELSE
+        RAISE NOTICE 'Reassigning requests from employee % to employee %',
+            v_source_eid, v_target_eid;
+
+        CALL reassign_requests_from_employee(v_source_eid, v_target_eid, 5);
+    END IF;
+
+    RAISE NOTICE 'Main employee process finished';
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'Error in main employee process: %', SQLERRM;
+END;
+$$;
+```
+
+### Output
+
+![Main Program 1 Output](phase4/images/proof_main1.png)
+
+---
+
+# Low Stock Product Management
+
+The second business process focuses on inventory management.
+
+The workflow is:
+
+```text
+Main Program
+    ↓
+Get Low Stock Products
+    ↓
+Return Ref Cursor
+    ↓
+Increase Product Prices
+    ↓
+Validate Price Increase Using Trigger
+```
+
+---
+
+## Function 2 – Get Low Stock Products
+
+The implementation was created in the file:
+
+```text
+get_low_stock_products.sql
+```
+
+### Description
+
+This function receives a stock threshold and returns a Ref Cursor containing all products whose stock quantity is lower than or equal to the specified limit.
+
+Only products with valid stock information are considered.
+
+This is important because the original products from our system do not necessarily contain stock quantity values, while products from the received department include stock information.
+
+The function demonstrates the use of Ref Cursor.
+
+### Code
+
+```sql
+CREATE OR REPLACE FUNCTION get_low_stock_products(p_limit INT)
+RETURNS REFCURSOR
+AS $$
+DECLARE
+    ref REFCURSOR;
+BEGIN
+    OPEN ref FOR
+        SELECT
+            pid,
+            pname,
+            price,
+            stock_qty,
+            manufactured_in,
+            s_id
+        FROM products
+        WHERE stock_qty IS NOT NULL
+          AND stock_qty <= p_limit
+        ORDER BY stock_qty ASC, pname ASC;
+
+    RETURN ref;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'Error in get_low_stock_products: %', SQLERRM;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+### Output
+
+![Low Stock Function Output](phase4/images/proof_main2.png)
+
+---
+
+## Procedure 2 – Increase Low Stock Prices From Cursor
+
+The implementation was created in the file:
+
+```text
+increase_low_stock_prices_from_cursor.sql
+```
+
+### Description
+
+This procedure receives:
+
+* A Ref Cursor containing low stock products.
+* A percentage value representing the desired price increase.
+
+The procedure iterates through the same cursor returned by Function 2 and updates the prices of all products in the cursor.
+
+This avoids scanning the same products again and connects the function and procedure directly.
+
+### Code
+
+```sql
+CREATE OR REPLACE PROCEDURE increase_low_stock_prices_from_cursor(
+    p_products_cursor REFCURSOR,
+    p_percent NUMERIC DEFAULT 5
+)
+AS $$
+DECLARE
+    rec RECORD;
+    v_new_price NUMERIC;
+    v_counter INT := 0;
+BEGIN
+    IF p_percent <= 0 THEN
+        RAISE EXCEPTION 'Percent must be positive';
+    END IF;
+
+    LOOP
+        FETCH p_products_cursor INTO rec;
+        EXIT WHEN NOT FOUND;
+
+        v_new_price := rec.price + (rec.price * p_percent / 100);
+
+        UPDATE products
+        SET price = ROUND(v_new_price)::INT
+        WHERE pid = rec.pid;
+
+        v_counter := v_counter + 1;
+
+        RAISE NOTICE 'Product % price updated from % to % using % percent',
+            rec.pname,
+            rec.price,
+            ROUND(v_new_price)::INT,
+            p_percent;
+    END LOOP;
+
+    RAISE NOTICE 'Total products updated: %', v_counter;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'Error in increase_low_stock_prices_from_cursor: %', SQLERRM;
+END;
+$$ LANGUAGE plpgsql;
+```
+
+### Output
+
+![Low Stock Procedure Output](phase4/images/proof_main2.png)
+
+---
+
+## Trigger 2 – Validate Price Increase
+
+The implementation was created in the file:
+
+```text
+validate_price_increase.sql
+```
+
+### Description
+
+This trigger is executed before updating the price of a product.
+
+The trigger prevents an excessive price increase in a single update operation.
+
+If the new price is more than 20% higher than the old price, the update is rejected and an exception is raised.
+
+This business rule protects the store from unreasonable automatic or manual price increases.
+
+### Code
+
+```sql
+CREATE OR REPLACE FUNCTION validate_price_increase()
+RETURNS TRIGGER
+AS $$
+BEGIN
+
+    IF NEW.price > OLD.price * 1.20 THEN
+        RAISE EXCEPTION
+            'Price increase too high for product %. Old price: %, New price: %',
+            NEW.pid,
+            OLD.price,
+            NEW.price;
+    END IF;
+
+    RETURN NEW;
+
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_validate_price_increase ON products;
+
+CREATE TRIGGER trg_validate_price_increase
+BEFORE UPDATE OF price ON products
+FOR EACH ROW
+EXECUTE FUNCTION validate_price_increase();
+```
+
+### Output
+
+![Price Increase Trigger Output](phase4/images/proof_main2.png)
+
+---
+
+## Main Program 2 – Stock Management Process
+
+The implementation was created in the file:
+
+```text
+main_stock_process.sql
+```
+
+### Description
+
+This main program controls the low-stock management process.
+
+The program:
+
+1. Opens a transaction.
+2. Calls Function 2 and receives a Ref Cursor.
+3. Passes the cursor to Procedure 2.
+4. Updates the prices of low-stock products.
+5. Closes the cursor.
+6. Commits the transaction.
+
+### Code
+
+```sql
+BEGIN;
+
+DO $$
+DECLARE
+    c REFCURSOR;
+    v_stock_limit INT := 10;
+    v_price_update_percent NUMERIC := 5;
+BEGIN
+    RAISE NOTICE 'Main stock process started';
+
+    c := get_low_stock_products(v_stock_limit);
+
+    CALL increase_low_stock_prices_from_cursor(c, v_price_update_percent);
+
+    CLOSE c;
+
+    RAISE NOTICE 'Main stock process finished';
+END;
+$$;
+
+COMMIT;
+```
+
+### Output
+
+![Main Program 2 Output](phase4/images/proof_main2.png)
+
+---
+
+# Backup
+
+A full updated backup of the database was created after completing Phase 4.
+
+
+Backup file:
+
+[Download backup](./phase4/backup4.backup)
