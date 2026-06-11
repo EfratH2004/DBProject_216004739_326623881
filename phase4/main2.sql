@@ -1,10 +1,11 @@
+-- פונקציה שמחזירה קורסור עם המוצרים שהמלאי שלהם נמוך מהסף שנקבע
 CREATE OR REPLACE FUNCTION get_low_stock_products(p_limit INT)
 RETURNS REFCURSOR
 AS $$
 DECLARE
-    ref REFCURSOR;
+    ref REFCURSOR; -- המשתנה שיחזיק את הקורסור שנחזיר
 BEGIN
-    OPEN ref FOR
+    OPEN ref FOR --עכשיו הוא יצביע על תוצאות השאילתא שבאה 
         SELECT
             pid,
             pname,
@@ -13,9 +14,9 @@ BEGIN
             manufactured_in,
             s_id
         FROM products
-        WHERE stock_qty IS NOT NULL
-          AND stock_qty <= p_limit
-        ORDER BY stock_qty ASC, pname ASC;
+        WHERE stock_qty IS NOT NULL -- רק מוצרים שיש להם ערך במלאי
+          AND stock_qty <= p_limit -- והמלאי נמוך מהסף
+        ORDER BY stock_qty ASC, pname ASC; -- קודם המלאי הכי נמוך אחר כך סדר אלפביתי
 
     RETURN ref;
 
@@ -26,28 +27,29 @@ END;
 $$ LANGUAGE plpgsql;
 
 
+-- מקבלת קורסור של מוצרים במלאי נמוך, עוברת עליהם אחד־אחד, ומעלה לכל אחד את המחיר באחוז מסוים
 CREATE OR REPLACE PROCEDURE increase_low_stock_prices_from_cursor(
     p_products_cursor REFCURSOR,
     p_percent NUMERIC DEFAULT 5
 )
 AS $$
 DECLARE
-    rec RECORD;
-    v_new_price NUMERIC;
-    v_counter INT := 0;
+    rec RECORD; -- יחזיק מוצר אחד שהגיע מהקורסור בכל סיבוב
+    v_new_price NUMERIC; -- המחיר החדש לפהי העיגול
+    v_counter INT := 0; -- מונה כמה מוצרים עודכנו
 BEGIN
     IF p_percent <= 0 THEN
         RAISE EXCEPTION 'Percent must be positive';
     END IF;
 
     LOOP
-        FETCH p_products_cursor INTO rec;
-        EXIT WHEN NOT FOUND;
+        FETCH p_products_cursor INTO rec; --מחזיק את השורה הבאה מהקורסור
+        EXIT WHEN NOT FOUND; -- בודק אם אין יותר שורות בקורסור
 
-        v_new_price := rec.price + (rec.price * p_percent / 100);
+        v_new_price := rec.price + (rec.price * p_percent / 100); 
 
         UPDATE products
-        SET price = ROUND(v_new_price)::INT
+        SET price = ROUND(v_new_price):: -- מעדכנים למחיר החדש אחרי עיגול
         WHERE pid = rec.pid;
 
         v_counter := v_counter + 1;
@@ -68,7 +70,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
--- טריגר 2:
+-- בודק שלא העלו את המחיר של מוצר במעל 20% בבת אחת
 CREATE OR REPLACE FUNCTION validate_price_increase()
 RETURNS TRIGGER
 AS $$
@@ -99,15 +101,16 @@ EXECUTE FUNCTION validate_price_increase();
 
 BEGIN;
 
+-- תהליך ראשי שמאתר מוצרים במלאי נמוך ומעדכן את מחירם בהתאם
 DO $$
 DECLARE
-    c REFCURSOR;
-    v_stock_limit INT := 10;
-    v_price_update_percent NUMERIC := 5;
+    c REFCURSOR; -- מצביע לקורסור שמכיל את המוצרים בעלי המלאי הנמוך
+    v_stock_limit INT := 10; -- הגדרת סף למלאי נמוך
+    v_price_update_percent NUMERIC := 5; -- אחוז העלאת המחיר
 BEGIN
     RAISE NOTICE 'Main stock process started';
 
-    c := get_low_stock_products(v_stock_limit);
+    c := get_low_stock_products(v_stock_limit); --10רשימת המוצרים שהמלאי שלהם קטן מ
 
     CALL increase_low_stock_prices_from_cursor(c, v_price_update_percent);
 
@@ -117,4 +120,4 @@ BEGIN
 END;
 $$;
 
-COMMIT;
+COMMIT; -- שומר את כל השינויים שבוצעו עד כה בבסיס הנתונים
