@@ -5,7 +5,7 @@ AS $$
 DECLARE
     ref REFCURSOR; -- המשתנה שיחזיק את הקורסור שנחזיר
 BEGIN
-    OPEN ref FOR --עכשיו הוא יצביע על תוצאות השאילתא שבאה 
+    OPEN ref FOR --ref הוא משתנה מסוג REFCURSOR שמצביע לקורסור, והקורסור פתוח על תוצאות ה־SELECT
         SELECT
             pid,
             pname,
@@ -35,7 +35,7 @@ CREATE OR REPLACE PROCEDURE increase_low_stock_prices_from_cursor(
 AS $$
 DECLARE
     rec RECORD; -- יחזיק מוצר אחד שהגיע מהקורסור בכל סיבוב
-    v_new_price NUMERIC; -- המחיר החדש לפהי העיגול
+    v_new_price NUMERIC; -- המחיר החדש לפני העיגול
     v_counter INT := 0; -- מונה כמה מוצרים עודכנו
 BEGIN
     IF p_percent <= 0 THEN
