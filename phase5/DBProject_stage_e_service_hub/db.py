@@ -1,16 +1,18 @@
-import psycopg2
-from psycopg2.extras import RealDictCursor
-from config import DB_CONFIG
+import psycopg2 # אנחנו משתמשים בספרייה שמאפשרת ל־Python להתחבר ל־PostgreSQL
+from psycopg2.extras import RealDictCursor # כשנקבל שורה מהדטה בייס נקבל אותה כמו מילון
+from config import DB_CONFIG #פרטי ההתחברות כתובים בקובץ השני config.py
 
 
+#פונקציה שפותחת חיבור לבסיס הנתונים
 def get_connection():
-    return psycopg2.connect(**DB_CONFIG)
+    return psycopg2.connect(**DB_CONFIG) # פותח חיבור לpostgres
 
 
+#פונקציה שמיועדת בעיקר לSELECT שמחזיר כמה שורות
 def fetch_all(query, params=None):
-    with get_connection() as conn:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(query, params or ())
+    with get_connection() as conn: # פותח חיבור לבסיס הנתונים
+        with conn.cursor(cursor_factory=RealDictCursor) as cur: # יוצרים קורסור - זה שממש מריץ את השאילתה. והתוצאה תחזור כמילון
+            cur.execute(query, params or ()) # פה השאילתה נשלחת באמת לדאטה בייס
             return cur.fetchall()
 
 
