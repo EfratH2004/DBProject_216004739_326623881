@@ -1542,3 +1542,335 @@ A full updated backup of the database was created after completing Phase 4.
 Backup file:
 
 [Download backup](./phase4/backup4.backup)
+
+
+# Phase 5 – Graphical User Interface (GUI)
+
+## Introduction
+
+In this phase, we developed a complete graphical user interface for our integrated Customer Service Management System.
+
+The GUI was implemented using **Python** and **Tkinter**, while all data is stored and managed in a **PostgreSQL** database.
+
+The application allows managers and employees to interact with the database through a user-friendly interface without executing SQL commands manually.
+
+The system supports:
+
+- Full CRUD operations
+- Execution of analytical SQL queries
+- Execution of PL/pgSQL functions and procedures
+- Role-based access control
+- Friendly graphical interface
+
+---
+
+# Technologies Used
+
+- Python
+- Tkinter
+- PostgreSQL
+- psycopg2
+- Git & GitHub
+
+---
+
+# System Structure
+
+The application contains two user roles:
+
+## Manager
+
+The manager can:
+
+- View yearly revenue
+- Execute analytical queries
+- Run workload balancing
+- Run supply & demand process
+- Run discount products process
+- View employee information
+- Access employee screens
+
+## Employee
+
+Employees can manage:
+
+- Customers
+- Requests
+- Transactions
+- Products
+
+---
+
+# Login Screen
+
+The application starts with a login screen.
+
+Users enter:
+
+- Employee ID
+- Password
+
+According to the employee role, the system opens either the Manager Dashboard or the Employee Dashboard.
+
+### Screenshot
+
+![Login](phase5/images/login.png)
+
+---
+
+# Manager Dashboard
+
+The Manager Dashboard provides access to:
+
+- Open Requests Over 30 Days
+- Product Sales & Revenue
+- Customer Total Spending
+- Employees Table
+- Workload Balance Process
+- Supply & Demand Process
+- Discount Products
+- Employee Screens
+
+### Screenshot
+
+![Manager Dashboard](phase5/images/manager_dashboard.png)
+
+---
+
+# Employee Dashboard
+
+The Employee Dashboard provides access to all operational screens.
+
+### Screenshot
+
+![Employee Dashboard](phase5/images/employee_dashboard.png)
+
+---
+
+# Customers Management
+
+Features:
+
+- Search customers
+- Add customer
+- Update customer
+- Soft delete customer
+- Status selection using ComboBox
+
+Foreign keys are displayed as meaningful names instead of IDs.
+
+### Screenshot
+
+![Customers](phase5/images/customers.png)
+
+---
+
+# Requests Management
+
+Features:
+
+- Search requests
+- Add request
+- Update request
+- Soft delete request
+- Priority and status selection using ComboBoxes
+
+### Screenshot
+
+![Requests](phase5/images/requests.png)
+
+---
+
+# Transactions Management
+
+Features:
+
+- Search transactions
+- Add transaction
+- Update transaction
+- Soft delete transaction
+
+The system displays:
+
+- Customer names
+- Product names
+- Employee names
+- Payment method names
+- Transaction status names
+
+instead of foreign key IDs.
+
+### Screenshot
+
+![Transactions](phase5/images/transactions.png)
+
+---
+
+# Products Management
+
+Features:
+
+- Search products
+- Add product
+- Update product
+- Soft delete product
+
+Products are not physically deleted from the database.
+
+Instead, a soft-delete mechanism is implemented using Active / Inactive status.
+
+### Screenshot
+
+![Products](phase5/images/products.png)
+
+---
+
+# SQL Queries From Phase 2
+
+The GUI allows managers to execute analytical SQL queries directly.
+
+## Open Requests Over 30 Days
+
+Displays requests that remained open for longer than the selected period.
+
+### Screenshot
+
+![Open Requests](phase5/images/query_requests.png)
+
+---
+
+## Product Sales & Revenue
+
+Displays:
+
+- Product name
+- Number of sales
+- Total revenue
+
+### Screenshot
+
+![Product Revenue](phase5/images/product_revenue.png)
+
+---
+
+## Customer Total Spending
+
+Displays the total amount spent by each customer.
+
+### Screenshot
+
+![Customer Revenue](phase5/images/customer_revenue.png)
+
+---
+
+# Employees Information
+
+Displays employee workload information and management reports.
+
+### Screenshot
+
+![Employees](phase5/images/employees.png)
+
+---
+
+# PL/pgSQL Programs From Phase 4
+
+The GUI supports execution of the business processes developed in Phase 4.
+
+## Workload Balance
+
+The manager selects the maximum number of requests to transfer.
+
+The system:
+
+1. Detects overloaded employees.
+2. Detects less-loaded employees.
+3. Executes the balancing procedure.
+4. Displays a summary popup.
+
+### Screenshot
+
+![Workload Balance](phase5/images/workload_balance.png)
+
+---
+
+## Supply & Demand
+
+The manager enters:
+
+- Stock threshold
+- Price increase percentage
+
+The system:
+
+1. Finds low-stock products.
+2. Executes the function.
+3. Executes the procedure.
+4. Displays a summary popup.
+
+### Screenshot
+
+![Supply Demand](phase5/images/supply_demand.png)
+
+---
+
+## Discount Products
+
+The manager can execute the discount process directly from the dashboard.
+
+### Screenshot
+
+![Discount Products](phase5/images/discount_product.png)
+
+---
+
+# User Interface Features
+
+The GUI includes:
+
+- Modern dashboard layout
+- Sidebar navigation
+- Color-coded action cards
+- Popup notifications
+- Search functionality
+- ComboBoxes instead of foreign key IDs
+- Soft-delete mechanisms
+- Automatic refresh after updates
+- Role-based access control
+
+---
+
+# Installation
+
+Install the required package:
+
+```bash
+pip install psycopg2-binary
+```
+
+---
+
+# Running the Application
+
+```bash
+python app.py
+```
+
+---
+
+# Project Summary
+
+The Phase 5 application provides a complete graphical interface for the integrated database system.
+
+Implemented features:
+
+- Full CRUD support
+- Friendly user interface
+- Role-based access control
+- SQL query execution
+- PL/pgSQL function and procedure execution
+- Soft-delete mechanisms
+- Foreign key name resolution
+- PostgreSQL integration
+
+The application satisfies all Phase 5 requirements and provides a practical and user-friendly way to manage the Customer Service system.
